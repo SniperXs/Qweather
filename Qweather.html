@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QWEATHER — NASA Weather & Astronomy</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <!-- إضافة مكتبة Leaflet للخرائط -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root{
+      --bg:#0c1c2c;--panel:#123;--muted:#a9b8c7;--accent:#ff9f43;--accent-2:#10ac84;--glass:rgba(255,255,255,0.08);--card:rgba(255,255,255,0.08);--danger:#ff6b6b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#021422,#0c2345);color:#eaf6fb}
+
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);position:sticky;top:0;z-index:1000;}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#ffbe76);display:flex;align-items:center;justify-content:center;font-weight:800;color:#022026}
+    nav a{margin:0 10px;text-decoration:none;color:var(--muted);font-weight:600;transition:.2s}
+    nav a:hover{color:var(--accent)}
+    .actions{display:flex;gap:8px}
+    .btn{display:flex;align-items:center;gap:6px;background:var(--accent);color:#04202a;padding:12px 16px;border-radius:10px;text-decoration:none;font-weight:700;cursor:pointer;border:none;transition:.25s;font-size:14px}
+    .btn:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 6px 14px rgba(0,0,0,.5)}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.2);color:var(--muted)}
+    .btn.ghost:hover{background:rgba(255,255,255,0.05)}
+
+    .container{max-width:1200px;margin:20px auto;padding:18px}
+    .grid{display:grid;grid-template-columns:1fr 380px;gap:18px}
+    .panel,.card{padding:18px;border-radius:14px;background:var(--card);box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    .input,.date{width:100%;padding:10px;border-radius:8px;background:var(--glass);border:1px solid rgba(255,255,255,0.1);color:inherit}
+    .select{width:100%;padding:10px;border-radius:8px;font-weight:600;color:#fff;background:linear-gradient(135deg,#1e3c72,#2a5298);border:1px solid rgba(255,255,255,0.2);appearance:none;cursor:pointer;text-align:center;transition:.3s}
+    .select:hover{background:linear-gradient(135deg,#203a68,#355c9c)}
+    .select option{background:#0c1c2c;color:#eaf6fb;padding:8px}
+
+    .row{display:flex;gap:10px;margin-bottom:10px}
+    .small{width:180px}
+
+    .summary{margin-top:12px;padding:14px;border-radius:12px;background:var(--glass);border:1px solid rgba(255,255,255,0.1)}
+    .summary h2{margin:0;font-size:18px}
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+    .metric{padding:12px;border-radius:10px;background:var(--glass);text-align:center;transition:.3s}
+    .metric:hover{transform:scale(1.05);background:rgba(255,255,255,0.1)}
+    .metric .value{font-size:22px;font-weight:800}
+    .metric .label{font-size:12px;color:var(--muted);margin-top:6px}
+
+    .astro-card{padding:12px;border-radius:10px;background:var(--glass);text-align:center}
+
+    .events-list{margin-top:10px;max-height:150px;overflow-y:auto}
+    .event-item{padding:8px;border-radius:8px;background:var(--glass);margin-bottom:6px;font-size:13px}
+
+    .activities{margin-top:12px;padding:12px;border-radius:10px;background:var(--glass)}
+    .activities h3{margin-top:0;font-size:16px}
+    .activity-list{list-style:none;padding:0;margin:0}
+    .activity-list li{margin-bottom:6px;font-size:13px}
+
+    footer{margin-top:20px;color:var(--muted);font-size:12px;text-align:center}
+    
+    /* أنماط الخريطة */
+    #mapContainer {
+      margin-top: 12px;
+      height: 350px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+    
+    .map-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .map-controls .btn {
+      flex: 1;
+      justify-content: center;
+    }
+    
+    /* تخصيص مظهر الخريطة لتباين أفضل */
+    .leaflet-container {
+      background: #0c1c2c;
+      font-family: inherit;
+    }
+    
+    .leaflet-popup-content-wrapper {
+      background: var(--panel);
+      color: #eaf6fb;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    
+    .leaflet-popup-tip {
+      background: var(--panel);
+    }
+    
+    .leaflet-control-zoom a {
+      background: var(--panel);
+      color: #eaf6fb;
+      border: 1px solid rgba(255,255,255,0.2);
+      font-weight: bold;
+    }
+    
+    .leaflet-control-zoom a:hover {
+      background: rgba(255,255,255,0.15);
+      color: var(--accent);
+    }
+    
+    .leaflet-control-attribution {
+      background: rgba(0,0,0,0.7) !important;
+      color: var(--muted) !important;
+      font-size: 10px;
+    }
+    
+    .leaflet-control-attribution a {
+      color: var(--accent) !important;
+    }
+    
+    /* تحسين مظهر العلامة */
+    .custom-marker {
+      background: var(--accent);
+      border: 3px solid white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      box-shadow: 0 0 10px rgba(255, 159, 67, 0.7);
+    }
+    
+    .astronomy-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .location-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    
+    .location-info i {
+      color: var(--accent);
+    }
+    
+    /* تخصيص طبقات الخريطة لتباين أفضل */
+    .high-contrast-tiles {
+      filter: contrast(1.2) brightness(0.9) saturate(1.1);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo"><i class="fa-solid fa-sun"></i></div>
+      <h1 style="font-size:18px;margin:0">QWEATHER</h1>
+    </div>
+    <nav>
+      <a href="#">Home</a>
+      <a href="#">Weather</a>
+      <a href="#">Astronomy</a>
+      <a href="#">About</a>
+    </nav>
+    <div class="actions">
+      <button class="btn"><i class="fa-solid fa-download"></i> Export CSV</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <main class="grid">
+      <section>
+        <div class="panel">
+          <div class="controls">
+            <div class="row">
+              <div style="flex:1">
+                <label><i class="fa-solid fa-location-crosshairs"></i> Coordinates</label>
+                <input id="coordsInput" class="input" placeholder="Latitude, Longitude (optional)" />
+              </div>
+            </div>
+            <div class="row">
+              <div style="flex:1">
+                <label><i class="fa-solid fa-calendar-day"></i> Date</label>
+                <input class="date" id="dateInput" type="date" />
+              </div>
+              <div class="small">
+                <label><i class="fa-solid fa-chart-line"></i> Analysis Range</label>
+                <select class="select" id="rangeInput">
+                  <option value="3">☀️ 3 Days Forecast</option>
+                  <option value="7" selected>🌤️ 7 Days Forecast</option>
+                  <option value="14">🌙 14 Days Forecast</option>
+                  <option value="30">🪐 30 Days Forecast</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <button id="getData" class="btn"><i class="fa-solid fa-cloud-sun"></i> Fetch Results</button>
+              <button id="clearBtn" class="btn ghost">Clear</button>
+            </div>
+            
+            <!-- إضافة الخريطة -->
+            <div class="map-section">
+              <label><i class="fa-solid fa-map"></i> Select Location on Map</label>
+              <div id="mapContainer">
+                <div id="map"></div>
+              </div>
+              <div class="location-info">
+                <i class="fa-solid fa-info-circle"></i>
+                <span>Click on the map to select a location or use the buttons below</span>
+              </div>
+              <div class="map-controls">
+                <button id="useCurrentLocation" class="btn"><i class="fa-solid fa-location-arrow"></i> Use My Location</button>
+                <button id="useMapLocation" class="btn ghost"><i class="fa-solid fa-check"></i> Use Selected Location</button>
+              </div>
+            </div>
+            
+            <div class="summary">
+              <h2 id="locationTitle">— Select location —</h2>
+              <p class="muted" id="status">Analysis data will appear here.</p>
+              <div class="metrics">
+                <div class="metric"><div class="value" id="temp">—</div><div class="label">Temp (°C)</div></div>
+                <div class="metric"><div class="value" id="rain">—</div><div class="label">Rain (mm)</div></div>
+                <div class="metric"><div class="value" id="wind">—</div><div class="label">Wind (m/s)</div></div>
+                <div class="metric"><div class="value" id="humidity">—</div><div class="label">Humidity (%)</div></div>
+              </div>
+              <div class="activities">
+                <h3>Suggested Activities</h3>
+                <ul class="activity-list" id="activityList">
+                  <li>— No data yet —</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer>Powered by NASA POWER API</footer>
+      </section>
+      <aside>
+        <div class="card" style="margin-bottom:12px">
+          <h3 style="margin:0">Astronomical Events</h3>
+          <div class="astronomy-grid">
+            <div class="astro-card"><div>🌅</div><div id="sunrise">—:—</div><div>Sunrise</div></div>
+            <div class="astro-card"><div>🌇</div><div id="sunset">—:—</div><div>Sunset</div></div>
+            <div class="astro-card"><div>🌙</div><div id="moon">—</div><div>Moon</div></div>
+            <div class="astro-card"><div>⭐</div><div id="visibility">—</div><div>Visibility</div></div>
+          </div>
+          <div style="margin-top:12px">
+            <h4>Today's Events</h4>
+            <div class="events-list" id="eventsList">
+              <div class="event-item">--:-- - Select location to load events</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    // تهيئة الخريطة
+    let map;
+    let marker;
+    let selectedLat, selectedLng;
+    
+    function initMap() {
+      // إنشاء الخريطة مع عرض خريطة العالم في البداية
+      map = L.map('map').setView([20, 0], 2);
+      
+      // إضافة طبقة الخريطة مع تباين عالي
+      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 20,
+        className: 'high-contrast-tiles'
+      }).addTo(map);
+      
+      // إضافة طبقة بديلة للتباين العالي (خيار احتياطي)
+      const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 20
+      });
+      
+      // إضافة طبقة للتباين العالي جداً (خيار إضافي)
+      const tonerLayer = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}{r}.png', {
+        attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 20
+      });
+      
+      // إضافة حدث النقر على الخريطة لوضع علامة
+      map.on('click', function(e) {
+        selectedLat = e.latlng.lat;
+        selectedLng = e.latlng.lng;
+        
+        // إزالة العلامة القديمة إذا كانت موجودة
+        if (marker) {
+          map.removeLayer(marker);
+        }
+        
+        // إنشاء عنصر مخصص للعلامة
+        const customIcon = L.divIcon({
+          className: 'custom-marker',
+          html: '',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+        
+        // إضافة علامة جديدة
+        marker = L.marker([selectedLat, selectedLng], {icon: customIcon}).addTo(map)
+          .bindPopup(`
+            <div style="text-align:center">
+              <strong>Selected Location</strong><br>
+              Lat: ${selectedLat.toFixed(4)}<br>
+              Lng: ${selectedLng.toFixed(4)}<br>
+              <button onclick="useSelectedLocation()" style="margin-top:8px;padding:6px 12px;background:#ff9f43;border:none;border-radius:4px;color:#04202a;font-weight:bold;cursor:pointer">
+                Use This Location
+              </button>
+            </div>
+          `)
+          .openPopup();
+          
+        // تحديث حقل الإحداثيات
+        document.getElementById('coordsInput').value = `${selectedLat.toFixed(4)}, ${selectedLng.toFixed(4)}`;
+        
+        // تحديث العنوان
+        document.getElementById('locationTitle').textContent = `Location: ${selectedLat.toFixed(2)}, ${selectedLng.toFixed(2)}`;
+        document.getElementById('status').textContent = 'Location selected from map. Click "Fetch Results" to get data.';
+      });
+      
+      // إضافة عناصر تحكم إضافية للخريطة
+      L.control.layers({
+        "OpenStreetMap": osmLayer,
+        "Carto Light": cartoLayer,
+        "High Contrast": tonerLayer
+      }).addTo(map);
+    }
+    
+    // دالة لاستخدام الموقع المحدد
+    function useSelectedLocation() {
+      if (selectedLat && selectedLng) {
+        document.getElementById('locationTitle').textContent = `Location: ${selectedLat.toFixed(2)}, ${selectedLng.toFixed(2)}`;
+        document.getElementById('status').textContent = 'Location selected from map. Click "Fetch Results" to get data.';
+        if (marker) {
+          marker.closePopup();
+        }
+      }
+    }
+    
+    // استدعاء تهيئة الخريطة عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', function() {
+      // تعيين تاريخ اليوم كتاريخ افتراضي
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('dateInput').value = today;
+      
+      initMap();
+      
+      // إضافة حدث لزر "استخدام الموقع الحالي"
+      document.getElementById('useCurrentLocation').addEventListener('click', function() {
+        if (navigator.geolocation) {
+          document.getElementById('status').textContent = 'Detecting your location...';
+          navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            // تحديث الخريطة للانتقال إلى الموقع الحالي
+            map.setView([lat, lng], 10);
+            
+            // إزالة العلامة القديمة إذا كانت موجودة
+            if (marker) {
+              map.removeLayer(marker);
+            }
+            
+            // إنشاء عنصر مخصص للعلامة
+            const customIcon = L.divIcon({
+              className: 'custom-marker',
+              html: '',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            });
+            
+            // إضافة علامة جديدة
+            marker = L.marker([lat, lng], {icon: customIcon}).addTo(map)
+              .bindPopup(`
+                <div style="text-align:center">
+                  <strong>Your Current Location</strong><br>
+                  Lat: ${lat.toFixed(4)}<br>
+                  Lng: ${lng.toFixed(4)}<br>
+                  <button onclick="useSelectedLocation()" style="margin-top:8px;padding:6px 12px;background:#ff9f43;border:none;border-radius:4px;color:#04202a;font-weight:bold;cursor:pointer">
+                    Use This Location
+                  </button>
+                </div>
+              `)
+              .openPopup();
+              
+            // تحديث حقل الإحداثيات
+            document.getElementById('coordsInput').value = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            
+            // تحديث العنوان
+            document.getElementById('locationTitle').textContent = `Location: ${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+            document.getElementById('status').textContent = 'Current location detected. Click "Fetch Results" to get data.';
+          }, function(error) {
+            let errorMessage = 'Unable to retrieve your location. ';
+            switch(error.code) {
+              case error.PERMISSION_DENIED:
+                errorMessage += 'Please allow location access in your browser settings.';
+                break;
+              case error.POSITION_UNAVAILABLE:
+                errorMessage += 'Location information is unavailable.';
+                break;
+              case error.TIMEOUT:
+                errorMessage += 'Location request timed out.';
+                break;
+              default:
+                errorMessage += 'An unknown error occurred.';
+            }
+            document.getElementById('status').textContent = errorMessage;
+          });
+        } else {
+          document.getElementById('status').textContent = 'Geolocation is not supported by this browser.';
+        }
+      });
+      
+      // إضافة حدث لزر "استخدام الموقع المحدد على الخريطة"
+      document.getElementById('useMapLocation').addEventListener('click', function() {
+        useSelectedLocation();
+      });
+    });
+
+    async function fetchNASAData(lat, lon){
+      const url = `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,PRECTOTCORR,WS2M,RH2M&community=RE&longitude=${lon}&latitude=${lat}&start=20240101&end=20240107&format=JSON`;
+      const res = await fetch(url);
+      return await res.json();
+    }
+
+    function generateAstronomyData(){
+      const now = new Date();
+      const sunrise = `${6+Math.floor(Math.random()*2)}:${(Math.random()*59).toFixed(0).padStart(2,'0')}`;
+      const sunset = `${18+Math.floor(Math.random()*2)}:${(Math.random()*59).toFixed(0).padStart(2,'0')}`;
+      const moonPhases = ['New Moon','Waxing Crescent','First Quarter','Waxing Gibbous','Full Moon','Waning Gibbous','Last Quarter','Waning Crescent'];
+      const moon = moonPhases[now.getDate()%8];
+      const visibilityOptions = ['Excellent','Good','Fair','Poor'];
+      const visibility = visibilityOptions[Math.floor(Math.random()*4)];
+      const events = [
+        {time:'04:30', event:'Meteor Shower Peak'},
+        {time:'20:00', event:'ISS Visible Pass'},
+        {time:'22:15', event:'Jupiter Opposition'}
+      ];
+      document.getElementById('sunrise').textContent = sunrise;
+      document.getElementById('sunset').textContent = sunset;
+      document.getElementById('moon').textContent = moon;
+      document.getElementById('visibility').textContent = visibility;
+      document.getElementById('eventsList').innerHTML = events.map(ev=>`<div class="event-item"><span class="event-time">${ev.time}</span> - ${ev.event}</div>`).join('');
+    }
+
+    function suggestActivities(temp, rain, wind){
+      const list = document.getElementById('activityList');
+      let suggestions = [];
+      if(temp>25 && rain<2 && wind<5){
+        suggestions.push('☀️ Great day for outdoor activities like hiking or cycling');
+      } else if(rain>5){
+        suggestions.push('🌧️ Better to enjoy indoor activities, maybe read or code');
+      } else if(wind>8){
+        suggestions.push('💨 Windy! Good for flying kites but avoid light outdoor setups');
+      } else if(temp<10){
+        suggestions.push('❄️ Cold weather, perfect for indoor warm drinks');
+      } else {
+        suggestions.push('🙂 Normal conditions, choose freely');
+      }
+      list.innerHTML = suggestions.map(s=>`<li>${s}</li>`).join('');
+    }
+
+    document.getElementById('getData').addEventListener('click', async ()=>{
+      let lat, lon;
+      const coordsInput = document.getElementById('coordsInput').value.trim();
+
+      if(coordsInput){
+        const coords = coordsInput.split(',');
+        if(coords.length === 2){
+          lat = parseFloat(coords[0]);
+          lon = parseFloat(coords[1]);
+        }
+      }
+
+      if(!lat || !lon){
+        document.getElementById('status').textContent = 'Please select a location on the map or enter coordinates.';
+        return;
+      }
+
+      document.getElementById('status').textContent = 'Fetching NASA data...';
+      try{
+        const data = await fetchNASAData(lat, lon);
+        const daily = data.properties.parameter;
+        const temp = Object.values(daily.T2M)[0];
+        const rain = Object.values(daily.PRECTOTCORR)[0];
+        const wind = Object.values(daily.WS2M)[0];
+        const humidity = Object.values(daily.RH2M)[0];
+        document.getElementById('temp').textContent = temp.toFixed(1);
+        document.getElementById('rain').textContent = rain.toFixed(1);
+        document.getElementById('wind').textContent = wind.toFixed(1);
+        document.getElementById('humidity').textContent = humidity.toFixed(1);
+        document.getElementById('locationTitle').textContent = `Location: ${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+        document.getElementById('status').textContent = 'Data loaded successfully!';
+        generateAstronomyData();
+        suggestActivities(temp,rain,wind);
+      }catch(err){
+        document.getElementById('status').textContent = 'Error fetching NASA data';
+      }
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', ()=>{
+      document.getElementById('coordsInput').value = '';
+      document.getElementById('temp').textContent = '—';
+      document.getElementById('rain').textContent = '—';
+      document.getElementById('wind').textContent = '—';
+      document.getElementById('humidity').textContent = '—';
+      document.getElementById('locationTitle').textContent = '— Select location —';
+      document.getElementById('status').textContent = 'Analysis data will appear here.';
+      document.getElementById('sunrise').textContent = '—:—';
+      document.getElementById('sunset').textContent = '—:—';
+      document.getElementById('moon').textContent = '—';
+      document.getElementById('visibility').textContent = '—';
+      document.getElementById('eventsList').innerHTML = '<div class="event-item">--:-- - Select location to load events</div>';
+      
+      // إزالة العلامة من الخريطة
+      if (marker) {
+        map.removeLayer(marker);
+        marker = null;
+      }
+      
+      // إعادة تعيين الخريطة إلى العرض الافتراضي
+      map.setView([20, 0], 2);
+    });
+  </script>
+</body>
+</html>
